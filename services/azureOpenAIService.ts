@@ -43,7 +43,7 @@ Respond ONLY with valid JSON in this exact format:
                 { role: 'user', content: prompt }
             ],
             temperature: 0.8,
-            max_tokens: 150,
+            max_completion_tokens: 150,
         });
 
         const content = response.choices[0]?.message?.content || '{}';
@@ -92,7 +92,7 @@ Respond ONLY with a valid JSON array of ${groupsOfParticipants.length} strings. 
                 { role: 'user', content: prompt }
             ],
             temperature: 0.8,
-            max_tokens: 200,
+            max_completion_tokens: 200,
         });
 
         const content = response.choices[0]?.message?.content || '[]';
