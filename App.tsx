@@ -3,7 +3,7 @@ import { Settings, Users, Trophy, ChevronRight, Lock, Unlock, Crown, Map as MapI
 import Hexagon from './components/Hexagon';
 import Timer from './components/Timer';
 import { Participant, Resource, TournamentSettings, RESOURCES, RESOURCE_COLORS, RESOURCE_EMOJIS, Group } from './types';
-import { generatePlayerPersona, generateGroupNames } from './services/geminiService';
+import { generatePlayerPersona, generateGroupNames } from './services/azureOpenAIService';
 import {
     fetchParticipants,
     addParticipant,
