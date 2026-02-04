@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Settings, Users, Trophy, ChevronRight, Lock, Unlock, Crown, Map as MapIcon, Plus, X, Trash2 } from 'lucide-react';
+import { Settings, Users, Trophy, ChevronRight, Lock, Unlock, Crown, Map as MapIcon, Plus, X, Trash2, Globe } from 'lucide-react';
 import Hexagon from './components/Hexagon';
 import Timer from './components/Timer';
 import { Participant, Resource, TournamentSettings, RESOURCES, RESOURCE_COLORS, RESOURCE_EMOJIS, Group } from './types';
@@ -14,6 +14,7 @@ import {
     saveGroups,
     deleteAllData
 } from './services/supabaseService';
+import { translations, Language, getResourceName } from './i18n';
 
 // --- Constants ---
 const DEFAULT_SETTINGS: TournamentSettings = {
@@ -43,6 +44,18 @@ export default function App() {
     const [formAlias, setFormAlias] = useState('');
     const [formResource, setFormResource] = useState<Resource>('sheep');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Language State
+    const [lang, setLang] = useState<Language>(() => {
+        const saved = localStorage.getItem('catan_lang');
+        return (saved === 'zh' || saved === 'en') ? saved : 'en';
+    });
+    const t = translations[lang];
+
+    // Save language preference
+    useEffect(() => {
+        localStorage.setItem('catan_lang', lang);
+    }, [lang]);
 
     // Load data from Supabase on mount
     useEffect(() => {
@@ -88,7 +101,7 @@ export default function App() {
             setView('admin');
             setAdminInput('');
         } else {
-            alert("Invalid Organizer Key");
+            alert(t.invalidOrganizerKey);
         }
     };
 
@@ -115,7 +128,7 @@ export default function App() {
         if (saved) {
             setParticipants(prev => [...prev, saved]);
         } else {
-            alert('Failed to register. Alias might already be taken.');
+            alert(t.registrationFailed);
         }
 
         setIsSubmitting(false);
@@ -125,7 +138,7 @@ export default function App() {
     };
 
     const handleDeleteParticipant = async (id: string) => {
-        if (window.confirm("Are you sure you want to delete this participant? This cannot be undone.")) {
+        if (window.confirm(t.confirmDelete)) {
             const success = await deleteParticipantFromDb(id);
             if (success) {
                 setParticipants(prev => prev.filter(p => p.id !== id));
@@ -160,11 +173,11 @@ export default function App() {
 
         setGroups(newGroups);
         setSettings(prev => ({ ...prev, tournamentStarted: true, isRegistrationClosed: true }));
-        alert("Tournament Brackets Generated!");
+        alert(t.bracketsGenerated);
     };
 
     const handleReset = async () => {
-        if (confirm("Are you sure? This deletes all data.")) {
+        if (confirm(t.confirmReset)) {
             await deleteAllData();
             setParticipants([]);
             setGroups([]);
@@ -185,7 +198,7 @@ export default function App() {
             <div className="min-h-screen flex items-center justify-center bg-slate-50">
                 <div className="flex flex-col items-center gap-4">
                     <div className="w-12 h-12 border-4 border-slate-200 border-t-catan-brick rounded-full animate-spin" />
-                    <p className="text-slate-500 font-medium">Loading tournament data...</p>
+                    <p className="text-slate-500 font-medium">{t.loading}</p>
                 </div>
             </div>
         );
@@ -200,10 +213,10 @@ export default function App() {
                     </Hexagon>
                 </div>
                 <h1 className="text-6xl md:text-7xl font-black text-slate-800 tracking-tight">
-                    STUDIO 8<br /><span className="text-catan-brick">CATAN TOURNAMENT</span>
+                    {t.title1}<br /><span className="text-catan-brick">{t.title2}</span>
                 </h1>
                 <p className="text-xl text-slate-500 max-w-lg mx-auto">
-                    Trade wood for sheep, build the longest road, and claim the crown. The annual designer board game battle begins soon.
+                    {t.subtitle}
                 </p>
             </div>
 
@@ -214,23 +227,23 @@ export default function App() {
                         onClick={() => setView('signup')}
                         className="group relative inline-flex items-center gap-3 px-8 py-4 bg-slate-900 text-white rounded-full text-lg font-bold hover:bg-catan-brick transition-all duration-300 shadow-xl hover:shadow-2xl hover:-translate-y-1 overflow-hidden"
                     >
-                        <span className="relative z-10">Register Now</span>
+                        <span className="relative z-10">{t.registerNow}</span>
                         <ChevronRight className="w-5 h-5 group-hover:translate-x-1 transition-transform relative z-10" />
                         <div className="absolute inset-0 bg-white/10 translate-y-full group-hover:translate-y-0 transition-transform duration-300" />
                     </button>
                 </div>
             ) : (
                 <div className="bg-slate-800 text-white px-8 py-6 rounded-2xl text-center shadow-xl">
-                    <h2 className="text-2xl font-bold mb-2">Registration Closed</h2>
+                    <h2 className="text-2xl font-bold mb-2">{t.registrationClosed}</h2>
                     {settings.tournamentStarted ? (
                         <button
                             onClick={() => setView('bracket')}
                             className="mt-4 px-6 py-2 bg-catan-wheat text-slate-900 rounded-full font-bold hover:bg-yellow-300 transition-colors"
                         >
-                            View Tournament Map
+                            {t.viewTournamentMap}
                         </button>
                     ) : (
-                        <p className="text-slate-400">Waiting for organizer to publish brackets...</p>
+                        <p className="text-slate-400">{t.waitingForBrackets}</p>
                     )}
                 </div>
             )}
@@ -241,7 +254,7 @@ export default function App() {
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-2xl font-bold text-slate-700 flex items-center gap-2">
                             <Users className="w-6 h-6" />
-                            Registered Settlers ({participants.length})
+                            {t.registeredSettlers} ({participants.length})
                         </h3>
                     </div>
 
@@ -252,7 +265,7 @@ export default function App() {
                                     <span className="text-2xl drop-shadow-md">{RESOURCE_EMOJIS[p.favoriteResource]}</span>
                                 </Hexagon>
                                 <span className="mt-2 font-bold text-slate-700 text-sm">{p.name}</span>
-                                <span className="text-[10px] text-slate-500 uppercase tracking-wide">{p.personaTitle || 'Settler'}</span>
+                                <span className="text-[10px] text-slate-500 uppercase tracking-wide">{p.personaTitle || t.settler}</span>
                             </div>
                         ))}
                     </div>
@@ -264,7 +277,7 @@ export default function App() {
     const renderSignup = () => (
         <div className="max-w-md mx-auto w-full bg-white p-8 rounded-3xl shadow-2xl border border-slate-100 mt-10">
             <div className="flex justify-between items-center mb-8">
-                <h2 className="text-3xl font-bold text-slate-800">Join the Island</h2>
+                <h2 className="text-3xl font-bold text-slate-800">{t.joinTheIsland}</h2>
                 <button onClick={() => setView('landing')} className="p-2 hover:bg-slate-100 rounded-full transition-colors">
                     <X className="w-6 h-6 text-slate-400" />
                 </button>
@@ -272,7 +285,7 @@ export default function App() {
 
             <form onSubmit={handleSignup} className="space-y-6">
                 <div>
-                    <label className="block text-sm font-semibold text-slate-600 mb-2">Your Name</label>
+                    <label className="block text-sm font-semibold text-slate-600 mb-2">{t.yourName}</label>
                     <input
                         required
                         type="text"
@@ -284,7 +297,7 @@ export default function App() {
                 </div>
 
                 <div>
-                    <label className="block text-sm font-semibold text-slate-600 mb-2">Alias</label>
+                    <label className="block text-sm font-semibold text-slate-600 mb-2">{t.alias}</label>
                     <input
                         required
                         type="text"
@@ -296,7 +309,7 @@ export default function App() {
                 </div>
 
                 <div>
-                    <label className="block text-sm font-semibold text-slate-600 mb-3">Favorite Resource</label>
+                    <label className="block text-sm font-semibold text-slate-600 mb-3">{t.favoriteResource}</label>
                     <div className="grid grid-cols-5 gap-2">
                         {RESOURCES.map(r => (
                             <button
@@ -308,7 +321,7 @@ export default function App() {
                                 <div className={`w-8 h-8 rounded-full flex items-center justify-center text-lg ${RESOURCE_COLORS[r]} text-white shadow-sm`}>
                                     {RESOURCE_EMOJIS[r]}
                                 </div>
-                                <span className="text-[10px] uppercase font-bold text-slate-500">{r}</span>
+                                <span className="text-[10px] uppercase font-bold text-slate-500">{getResourceName(r, lang)}</span>
                             </button>
                         ))}
                     </div>
@@ -322,9 +335,9 @@ export default function App() {
                     {isSubmitting ? (
                         <>
                             <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                            Generating Persona...
+                            {t.generatingPersona}
                         </>
-                    ) : "Confirm Registration"}
+                    ) : t.confirmRegistration}
                 </button>
             </form>
         </div>
@@ -334,21 +347,21 @@ export default function App() {
         <div className="max-w-4xl mx-auto w-full p-6">
             <div className="flex items-center justify-between mb-8">
                 <h2 className="text-3xl font-bold text-slate-800 flex items-center gap-3">
-                    <Settings className="w-8 h-8" /> Organizer Dashboard
+                    <Settings className="w-8 h-8" /> {t.organizerDashboard}
                 </h2>
                 <button onClick={() => setView('landing')} className="text-sm font-semibold text-slate-500 hover:text-slate-800">
-                    Exit Dashboard
+                    {t.exitDashboard}
                 </button>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6 mb-8">
                 {/* Control Panel */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200 space-y-6">
-                    <h3 className="text-lg font-bold text-slate-700 border-b pb-2">Tournament Controls</h3>
+                    <h3 className="text-lg font-bold text-slate-700 border-b pb-2">{t.tournamentControls}</h3>
 
                     <div className="space-y-4">
                         <div>
-                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">Registration Deadline</label>
+                            <label className="block text-xs font-bold text-slate-500 uppercase mb-1">{t.registrationDeadline}</label>
                             <input
                                 type="datetime-local"
                                 value={settings.deadline.slice(0, 16)}
@@ -358,9 +371,9 @@ export default function App() {
                         </div>
 
                         <div className="flex items-center justify-between p-4 bg-slate-50 rounded-lg">
-                            <span className="font-medium text-slate-700">Status</span>
+                            <span className="font-medium text-slate-700">{t.status}</span>
                             <span className={`px-3 py-1 rounded-full text-xs font-bold ${settings.isRegistrationClosed ? 'bg-red-100 text-red-600' : 'bg-green-100 text-green-600'}`}>
-                                {settings.isRegistrationClosed ? 'CLOSED' : 'OPEN'}
+                                {settings.isRegistrationClosed ? t.statusClosed : t.statusOpen}
                             </span>
                         </div>
 
@@ -369,7 +382,7 @@ export default function App() {
                             className="w-full py-2 border-2 border-slate-200 rounded-lg font-bold text-slate-600 hover:bg-slate-50 transition-colors flex items-center justify-center gap-2"
                         >
                             {settings.isRegistrationClosed ? <Unlock className="w-4 h-4" /> : <Lock className="w-4 h-4" />}
-                            {settings.isRegistrationClosed ? 'Re-open Registration' : 'Close Registration Early'}
+                            {settings.isRegistrationClosed ? t.reopenRegistration : t.closeRegistrationEarly}
                         </button>
 
                         <hr className="border-slate-100" />
@@ -380,41 +393,41 @@ export default function App() {
                             className="w-full py-3 bg-catan-wood text-white rounded-lg font-bold hover:bg-green-800 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                         >
                             <MapIcon className="w-5 h-5" />
-                            Generate Brackets & Start
+                            {t.generateBrackets}
                         </button>
 
                         <button
                             onClick={handleReset}
                             className="w-full py-2 text-red-500 text-xs font-bold hover:bg-red-50 rounded-lg transition-colors"
                         >
-                            Reset All Data (Danger)
+                            {t.resetAllData}
                         </button>
                     </div>
                 </div>
 
                 {/* Live Stats */}
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                    <h3 className="text-lg font-bold text-slate-700 border-b pb-2 mb-4">Live Stats</h3>
+                    <h3 className="text-lg font-bold text-slate-700 border-b pb-2 mb-4">{t.liveStats}</h3>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-slate-50 p-4 rounded-xl text-center">
                             <div className="text-3xl font-black text-slate-800">{participants.length}</div>
-                            <div className="text-xs text-slate-500 font-bold uppercase">Participants</div>
+                            <div className="text-xs text-slate-500 font-bold uppercase">{t.participants}</div>
                         </div>
                         <div className="bg-slate-50 p-4 rounded-xl text-center">
                             <div className="text-3xl font-black text-slate-800">{Math.ceil(participants.length / MAX_PLAYERS_PER_TABLE)}</div>
-                            <div className="text-xs text-slate-500 font-bold uppercase">Tables Needed</div>
+                            <div className="text-xs text-slate-500 font-bold uppercase">{t.tablesNeeded}</div>
                         </div>
                     </div>
 
                     <div className="mt-6">
-                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">Resource Distribution</h4>
+                        <h4 className="text-xs font-bold text-slate-500 uppercase mb-3">{t.resourceDistribution}</h4>
                         <div className="space-y-2">
                             {RESOURCES.map(r => {
                                 const count = participants.filter(p => p.favoriteResource === r).length;
                                 const pct = participants.length ? (count / participants.length) * 100 : 0;
                                 return (
                                     <div key={r} className="flex items-center gap-2 text-xs">
-                                        <span className="w-12 font-bold capitalize text-slate-600">{r}</span>
+                                        <span className="w-12 font-bold capitalize text-slate-600">{getResourceName(r, lang)}</span>
                                         <div className="flex-1 h-2 bg-slate-100 rounded-full overflow-hidden">
                                             <div className={`h-full ${RESOURCE_COLORS[r]}`} style={{ width: `${pct}%` }} />
                                         </div>
@@ -429,10 +442,10 @@ export default function App() {
 
             {/* Participant Management */}
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
-                <h3 className="text-lg font-bold text-slate-700 border-b pb-2 mb-4">Manage Participants ({participants.length})</h3>
+                <h3 className="text-lg font-bold text-slate-700 border-b pb-2 mb-4">{t.manageParticipants} ({participants.length})</h3>
 
                 {participants.length === 0 ? (
-                    <p className="text-slate-400 text-center py-8">No participants registered yet.</p>
+                    <p className="text-slate-400 text-center py-8">{t.noParticipants}</p>
                 ) : (
                     <div className="grid gap-3">
                         {participants.map(p => (
@@ -450,7 +463,7 @@ export default function App() {
                                 <button
                                     onClick={() => handleDeleteParticipant(p.id)}
                                     className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                    title="Remove Participant"
+                                    title={t.removeParticipant}
                                 >
                                     <Trash2 className="w-5 h-5" />
                                 </button>
@@ -466,10 +479,10 @@ export default function App() {
         <div className="w-full max-w-6xl mx-auto px-4 py-8">
             <div className="flex items-center justify-between mb-12">
                 <div>
-                    <h2 className="text-4xl font-black text-slate-800 mb-2">Tournament Map</h2>
-                    <p className="text-slate-500">Find your table, Settler. May the dice be in your favor.</p>
+                    <h2 className="text-4xl font-black text-slate-800 mb-2">{t.tournamentMap}</h2>
+                    <p className="text-slate-500">{t.findYourTable}</p>
                 </div>
-                <button onClick={() => setView('landing')} className="px-4 py-2 border rounded-full hover:bg-slate-50 text-sm font-bold">Back Home</button>
+                <button onClick={() => setView('landing')} className="px-4 py-2 border rounded-full hover:bg-slate-50 text-sm font-bold">{t.backHome}</button>
             </div>
 
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
@@ -477,7 +490,7 @@ export default function App() {
                     <div key={group.id} className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100 flex flex-col">
                         <div className="bg-slate-900 p-4 text-center">
                             <h3 className="text-white font-bold text-lg">{group.name}</h3>
-                            <div className="text-slate-400 text-xs uppercase tracking-widest mt-1">Table {idx + 1}</div>
+                            <div className="text-slate-400 text-xs uppercase tracking-widest mt-1">{t.table} {idx + 1}</div>
                         </div>
                         <div className="p-6 flex-1 flex flex-col gap-4">
                             {group.participants.map(pid => {
@@ -497,7 +510,7 @@ export default function App() {
                             })}
                         </div>
                         <div className="bg-slate-50 p-3 text-center text-xs text-slate-400 font-bold uppercase tracking-wider border-t">
-                            Qualifies 1 Winner
+                            {t.qualifiesWinner}
                         </div>
                     </div>
                 ))}
@@ -517,14 +530,23 @@ export default function App() {
                     </Hexagon>
                 </div>
 
-                <div className="pointer-events-auto">
+                <div className="pointer-events-auto flex items-center gap-3">
+                    {/* Language Switcher */}
+                    <button
+                        onClick={() => setLang(lang === 'en' ? 'zh' : 'en')}
+                        className="bg-white/80 backdrop-blur px-3 py-1 rounded-full text-xs font-bold border hover:bg-slate-50 flex items-center gap-1"
+                    >
+                        <Globe className="w-3 h-3" />
+                        {t.switchLang}
+                    </button>
+
                     {isAdmin ? (
-                        <button onClick={() => setView('admin')} className="bg-white px-4 py-2 rounded-full shadow-md text-xs font-bold border hover:bg-slate-50">Admin Panel</button>
+                        <button onClick={() => setView('admin')} className="bg-white px-4 py-2 rounded-full shadow-md text-xs font-bold border hover:bg-slate-50">{t.adminPanel}</button>
                     ) : (
                         <div className="flex gap-2">
                             <input
                                 type="password"
-                                placeholder="Key"
+                                placeholder={t.key}
                                 className="bg-white/80 backdrop-blur w-20 px-3 py-1 rounded-full text-xs border focus:w-32 transition-all outline-none"
                                 value={adminInput}
                                 onChange={(e) => setAdminInput(e.target.value)}

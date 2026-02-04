@@ -28,9 +28,10 @@ export const generatePlayerPersona = async (name: string, resource: Resource): P
 
     try {
         const prompt = `
-Generate a funny, epic, or mysterious Catan-themed "Title" and a short 1-sentence "Strategy/Persona Description" for a player named "${name}" who loves the resource "${resource}".
-Examples: "Baron of Bricks", "The Sheep Whisperer", "Lord of the Longest Road".
-Make it sound like a cool RPG character description but for a board game.
+Generate a funny, epic, or mysterious Catan-themed "Title" and a short 1-sentence "Strategy/Persona Description" for a player who loves the resource "${resource}".
+IMPORTANT: Do NOT include the player's name "${name}" in the title or description - the name is already displayed separately.
+Examples of good titles: "Baron of Bricks", "The Sheep Whisperer", "Lord of the Longest Road", "Archduke of Ore".
+Make it sound like a cool RPG character title but for a board game.
 
 Respond ONLY with valid JSON in this exact format:
 {"title": "Your Title Here", "description": "Your description here."}
@@ -50,7 +51,7 @@ Respond ONLY with valid JSON in this exact format:
         // Clean any markdown formatting that might be present
         const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
         const json = JSON.parse(cleanedContent);
-        
+
         return {
             title: json.title || `The ${resource} Lover`,
             description: json.description || `Ready to trade ${resource} for victory.`
@@ -98,7 +99,7 @@ Respond ONLY with a valid JSON array of ${groupsOfParticipants.length} strings. 
         const content = response.choices[0]?.message?.content || '[]';
         const cleanedContent = content.replace(/```json\n?|\n?```/g, '').trim();
         const names = JSON.parse(cleanedContent);
-        
+
         if (Array.isArray(names) && names.length === groupsOfParticipants.length) {
             return names;
         }
