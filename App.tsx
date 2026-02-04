@@ -200,7 +200,7 @@ export default function App() {
                     </Hexagon>
                 </div>
                 <h1 className="text-6xl md:text-7xl font-black text-slate-800 tracking-tight">
-                    SETTLERS<br /><span className="text-catan-brick">TOURNAMENT</span>
+                    STUDIO 8<br /><span className="text-catan-brick">CATAN TOURNAMENT</span>
                 </h1>
                 <p className="text-xl text-slate-500 max-w-lg mx-auto">
                     Trade wood for sheep, build the longest road, and claim the crown. The annual designer board game battle begins soon.
