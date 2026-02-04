@@ -22,7 +22,7 @@ export async function fetchParticipants(): Promise<Participant[]> {
     return (data || []).map(row => ({
         id: row.id,
         name: row.name,
-        email: row.email,
+        alias: row.alias,
         favoriteResource: row.resource as Resource,
         personaTitle: row.persona_title,
         personaDescription: row.persona_description,
@@ -35,7 +35,7 @@ export async function addParticipant(participant: Participant): Promise<Particip
         .insert({
             id: participant.id,
             name: participant.name,
-            email: participant.email,
+            alias: participant.alias,
             resource: participant.favoriteResource,
             persona_title: participant.personaTitle,
             persona_description: participant.personaDescription,
@@ -51,7 +51,7 @@ export async function addParticipant(participant: Participant): Promise<Particip
     return {
         id: data.id,
         name: data.name,
-        email: data.email,
+        alias: data.alias,
         favoriteResource: data.resource as Resource,
         personaTitle: data.persona_title,
         personaDescription: data.persona_description,

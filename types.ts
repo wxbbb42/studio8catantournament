@@ -3,7 +3,7 @@ export type Resource = 'brick' | 'wood' | 'sheep' | 'wheat' | 'ore';
 export interface Participant {
   id: string;
   name: string;
-  email: string;
+  alias: string;
   favoriteResource: Resource;
   personaTitle?: string; // AI Generated
   personaDescription?: string; // AI Generated

@@ -40,7 +40,7 @@ export default function App() {
 
     // Form State
     const [formName, setFormName] = useState('');
-    const [formEmail, setFormEmail] = useState('');
+    const [formAlias, setFormAlias] = useState('');
     const [formResource, setFormResource] = useState<Resource>('sheep');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -94,7 +94,7 @@ export default function App() {
 
     const handleSignup = async (e: React.FormEvent) => {
         e.preventDefault();
-        if (!formName || !formEmail) return;
+        if (!formName || !formAlias) return;
 
         setIsSubmitting(true);
 
@@ -104,7 +104,7 @@ export default function App() {
         const newParticipant: Participant = {
             id: crypto.randomUUID(),
             name: formName,
-            email: formEmail,
+            alias: formAlias,
             favoriteResource: formResource,
             personaTitle: persona.title,
             personaDescription: persona.description,
@@ -115,13 +115,13 @@ export default function App() {
         if (saved) {
             setParticipants(prev => [...prev, saved]);
         } else {
-            alert('Failed to register. Email might already be registered.');
+            alert('Failed to register. Alias might already be taken.');
         }
 
         setIsSubmitting(false);
         setView('landing'); // Go back to landing to see name in list
         setFormName('');
-        setFormEmail('');
+        setFormAlias('');
     };
 
     const handleDeleteParticipant = async (id: string) => {
@@ -284,14 +284,14 @@ export default function App() {
                 </div>
 
                 <div>
-                    <label className="block text-sm font-semibold text-slate-600 mb-2">Email</label>
+                    <label className="block text-sm font-semibold text-slate-600 mb-2">Alias</label>
                     <input
                         required
-                        type="email"
-                        value={formEmail}
-                        onChange={(e) => setFormEmail(e.target.value)}
+                        type="text"
+                        value={formAlias}
+                        onChange={(e) => setFormAlias(e.target.value)}
                         className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:border-catan-brick focus:ring-2 focus:ring-catan-brick/20 outline-none transition-all"
-                        placeholder="alisa@catan.com"
+                        placeholder="CatanChampion"
                     />
                 </div>
 
@@ -443,7 +443,7 @@ export default function App() {
                                     </div>
                                     <div>
                                         <div className="font-bold text-slate-800">{p.name}</div>
-                                        <div className="text-xs text-slate-500">{p.email} • <span className="italic">{p.personaTitle}</span></div>
+                                        <div className="text-xs text-slate-500">@{p.alias} • <span className="italic">{p.personaTitle}</span></div>
                                     </div>
                                 </div>
 
