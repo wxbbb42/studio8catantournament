@@ -1,0 +1,5 @@
+{
+  "name": "Settlers Tournament Hub",
+  "description": "A designer-friendly, engaging Catan tournament organization app. Features participant registration with AI-generated personas, countdown timers, and dynamic tournament bracket generation.",
+  "requestFramePermissions": []
+}
