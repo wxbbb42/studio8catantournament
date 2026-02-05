@@ -75,6 +75,61 @@ const sanitizeForContentFilter = (text: string): string => {
     return sanitized;
 };
 
+// Azure OpenAI Chat Configuration for gender inference
+const AZURE_OPENAI_ENDPOINT = import.meta.env.VITE_AZURE_OPENAI_ENDPOINT || '';
+const AZURE_OPENAI_KEY = import.meta.env.VITE_AZURE_OPENAI_KEY || '';
+const AZURE_OPENAI_DEPLOYMENT = import.meta.env.VITE_AZURE_OPENAI_DEPLOYMENT || 'gpt-5.2';
+
+// Infer gender from name using GPT-5.2 (keeps the name out of the image generation prompt)
+const inferGenderFromName = async (name: string): Promise<string> => {
+    if (!AZURE_OPENAI_KEY) {
+        console.warn('Azure OpenAI key not configured, using random gender');
+        const options = ['masculine', 'feminine', 'androgynous'];
+        return options[Math.floor(Math.random() * options.length)];
+    }
+
+    try {
+        const response = await fetch(
+            `${AZURE_OPENAI_ENDPOINT}/openai/deployments/${AZURE_OPENAI_DEPLOYMENT}/chat/completions?api-version=2024-12-01-preview`,
+            {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'api-key': AZURE_OPENAI_KEY,
+                },
+                body: JSON.stringify({
+                    messages: [
+                        {
+                            role: 'system',
+                            content: 'You are a helpful assistant that determines the most likely gender presentation for a given name. Respond with ONLY one word: "masculine", "feminine", or "androgynous". No explanation, just the single word.',
+                        },
+                        {
+                            role: 'user',
+                            content: `What gender presentation is most commonly associated with the name: ${name}`,
+                        },
+                    ],
+                    max_completion_tokens: 10,
+                    temperature: 0.3,
+                }),
+            }
+        );
+
+        if (response.ok) {
+            const data = await response.json();
+            const gender = data.choices?.[0]?.message?.content?.trim().toLowerCase() || 'androgynous';
+            // Validate the response is one of our expected values
+            if (['masculine', 'feminine', 'androgynous'].includes(gender)) {
+                console.log(`Inferred gender for "${name}": ${gender}`);
+                return gender;
+            }
+        }
+    } catch (error) {
+        console.warn('Failed to infer gender, using androgynous:', error);
+    }
+
+    return 'androgynous';
+};
+
 export const generateTarotCard = async (
     name: string,
     resource: Resource,
@@ -90,9 +145,13 @@ export const generateTarotCard = async (
 
         // Sanitize the description to avoid content filter, but keep original title on the card
         const safeDescription = sanitizeForContentFilter(personaTitle);
+        
+        // Use GPT-5.2 to infer gender from name (keeps name out of image prompt to avoid content filter)
+        const inferredGender = await inferGenderFromName(name);
+        console.log(`Using inferred gender "${inferredGender}" for image generation (name "${name}" kept out of image prompt)`);
 
         // Create a unique tarot card prompt (using content-filter safe language)
-        // Note: safeDescription is used for the figure description, but original personaTitle is used for the card text
+        // NOTE: Do NOT include the person's actual name in the prompt - it may trigger content filters
         const prompt = `${TAROT_STYLE_PROMPT}
 
 THE CHARACTER:
@@ -100,15 +159,14 @@ This card depicts "${safeDescription}" - a mystical figure from the world of Cat
 The figure is ${resourceImagery}
 
 CHARACTER APPEARANCE:
-- Infer the figure's gender from the name "${name}" (use this ONLY for appearance, NOT for any text on the card)
+- The figure should have a ${inferredGender} appearance
 - Wearing elaborate period costume with intricate embroidery, flowing robes, and symbolic accessories
 - Expression is serene, wise, and knowing - gazing meaningfully at the viewer or into the distance
 - Hands positioned in a meaningful gesture, perhaps holding a symbolic object
 - Rich textile patterns and jewelry details rendered with fine linework
 
 CARD TEXT (CRITICAL - READ CAREFULLY):
-- DO NOT put the name "${name}" anywhere on the card
-- The card text must show the TITLE, not the name
+- The card text must show the TITLE only
 - At the BOTTOM of the card, there MUST be a text banner displaying EXACTLY: "${personaTitle.toUpperCase()}"
 - Use elegant, hand-lettered, capitalized serif font in black ink
 - Roman numeral (I through XXI) in decorative cartouche at TOP center
