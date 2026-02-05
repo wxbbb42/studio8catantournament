@@ -7,6 +7,7 @@ export interface Participant {
   favoriteResource: Resource;
   personaTitle?: string; // AI Generated
   personaDescription?: string; // AI Generated
+  tarotCardUrl?: string; // AI Generated tarot card image
   rank?: number;
   score?: number;
 }

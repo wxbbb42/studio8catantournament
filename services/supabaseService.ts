@@ -6,6 +6,17 @@ const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYm
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
+// Helper function to ensure tarot card URL has proper data URL prefix
+const ensureDataUrlPrefix = (url: string | null): string | undefined => {
+    if (!url) return undefined;
+    // If it's already a proper URL (http, https, or data:), return as-is
+    if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('data:')) {
+        return url;
+    }
+    // Otherwise, assume it's raw base64 and add the prefix
+    return `data:image/png;base64,${url}`;
+};
+
 // --- Participants ---
 
 export async function fetchParticipants(): Promise<Participant[]> {
@@ -26,6 +37,7 @@ export async function fetchParticipants(): Promise<Participant[]> {
         favoriteResource: row.resource as Resource,
         personaTitle: row.persona_title,
         personaDescription: row.persona_description,
+        tarotCardUrl: ensureDataUrlPrefix(row.tarot_card_url),
     }));
 }
 
@@ -39,6 +51,7 @@ export async function addParticipant(participant: Participant): Promise<Particip
             resource: participant.favoriteResource,
             persona_title: participant.personaTitle,
             persona_description: participant.personaDescription,
+            tarot_card_url: participant.tarotCardUrl,
         })
         .select()
         .single();
@@ -55,6 +68,7 @@ export async function addParticipant(participant: Participant): Promise<Particip
         favoriteResource: data.resource as Resource,
         personaTitle: data.persona_title,
         personaDescription: data.persona_description,
+        tarotCardUrl: ensureDataUrlPrefix(data.tarot_card_url),
     };
 }
 
@@ -66,6 +80,19 @@ export async function deleteParticipant(id: string): Promise<boolean> {
 
     if (error) {
         console.error('Error deleting participant:', error);
+        return false;
+    }
+    return true;
+}
+
+export async function updateParticipantTarotCard(id: string, tarotCardUrl: string): Promise<boolean> {
+    const { error } = await supabase
+        .from('participants')
+        .update({ tarot_card_url: tarotCardUrl })
+        .eq('id', id);
+
+    if (error) {
+        console.error('Error updating participant tarot card:', error);
         return false;
     }
     return true;

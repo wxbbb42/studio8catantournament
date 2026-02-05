@@ -1,53 +1,76 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Catan Tournament Hub</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <script>
-      tailwind.config = {
-        theme: {
-          extend: {
-            fontFamily: {
-              sans: ['Outfit', 'sans-serif'],
-            },
-            colors: {
-              catan: {
-                brick: '#E55836',
-                wood: '#2D5A27',
-                sheep: '#8FB43D',
-                wheat: '#F2C94C',
-                ore: '#68737D',
-                water: '#3B82F6',
-                desert: '#D8B48D'
-              }
-            },
-            animation: {
-              'float': 'float 6s ease-in-out infinite',
-            },
-            keyframes: {
-              float: {
-                '0%, 100%': { transform: 'translateY(0)' },
-                '50%': { transform: 'translateY(-10px)' },
-              }
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Catan Tournament Hub</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+            catan: {
+              brick: '#E55836',
+              wood: '#2D5A27',
+              sheep: '#8FB43D',
+              wheat: '#F2C94C',
+              ore: '#68737D',
+              water: '#3B82F6',
+              desert: '#D8B48D'
+            }
+          },
+          animation: {
+            'float': 'float 6s ease-in-out infinite',
+          },
+          keyframes: {
+            float: {
+              '0%, 100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-10px)' },
             }
           }
         }
       }
-    </script>
-    <style>
-      body {
-        background-color: #F8FAFC;
-        background-image: radial-gradient(#E2E8F0 1px, transparent 1px);
-        background-size: 24px 24px;
-      }
-      /* Custom Hexagon Shape */
-      .hex-mask {
-        clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
-      }
-    </style>
+    }
+  </script>
+  <style>
+    body {
+      background-color: #F8FAFC;
+      background-image: radial-gradient(#E2E8F0 1px, transparent 1px);
+      background-size: 24px 24px;
+    }
+
+    /* Custom Hexagon Shape */
+    .hex-mask {
+      clip-path: polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%);
+    }
+
+    /* 3D Card Flip Styles */
+    .perspective-1000 {
+      perspective: 1000px;
+    }
+
+    .transform-style-3d {
+      transform-style: preserve-3d;
+    }
+
+    .backface-hidden {
+      backface-visibility: hidden;
+    }
+
+    .rotate-y-0 {
+      transform: rotateY(0deg);
+    }
+
+    .rotate-y-180 {
+      transform: rotateY(180deg);
+    }
+  </style>
   <script type="importmap">
 {
   "imports": {
@@ -59,10 +82,12 @@
   }
 }
 </script>
-<link rel="stylesheet" href="/index.css">
+  <link rel="stylesheet" href="/index.css">
 </head>
-  <body>
-    <div id="root"></div>
+
+<body>
+  <div id="root"></div>
   <script type="module" src="/index.tsx"></script>
 </body>
+
 </html>

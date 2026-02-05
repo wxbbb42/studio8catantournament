@@ -1,9 +1,10 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Settings, Users, Trophy, ChevronRight, Lock, Unlock, Crown, Map as MapIcon, Plus, X, Trash2, Globe } from 'lucide-react';
+import { Settings, Users, Trophy, ChevronRight, Lock, Unlock, Crown, Map as MapIcon, Plus, X, Trash2, Globe, ImagePlus, RefreshCw } from 'lucide-react';
 import Hexagon from './components/Hexagon';
 import Timer from './components/Timer';
 import { Participant, Resource, TournamentSettings, RESOURCES, RESOURCE_COLORS, RESOURCE_EMOJIS, Group } from './types';
 import { generatePlayerPersona, generateGroupNames } from './services/azureOpenAIService';
+import { generateTarotCard } from './services/imageGenerationService';
 import {
     fetchParticipants,
     addParticipant,
@@ -12,7 +13,8 @@ import {
     updateSettings as updateSettingsInDb,
     fetchGroups,
     saveGroups,
-    deleteAllData
+    deleteAllData,
+    updateParticipantTarotCard
 } from './services/supabaseService';
 import { translations, Language, getResourceName } from './i18n';
 
@@ -44,6 +46,14 @@ export default function App() {
     const [formAlias, setFormAlias] = useState('');
     const [formResource, setFormResource] = useState<Resource>('sheep');
     const [isSubmitting, setIsSubmitting] = useState(false);
+
+    // Tarot Card Modal State
+    const [selectedCard, setSelectedCard] = useState<Participant | null>(null);
+    const [isCardFlipped, setIsCardFlipped] = useState(false);
+
+    // Card Generation State
+    const [isGeneratingCards, setIsGeneratingCards] = useState(false);
+    const [cardsGeneratedCount, setCardsGeneratedCount] = useState(0);
 
     // Language State
     const [lang, setLang] = useState<Language>(() => {
@@ -111,8 +121,11 @@ export default function App() {
 
         setIsSubmitting(true);
 
-        // AI Magic
+        // AI Magic - Generate persona
         const persona = await generatePlayerPersona(formName, formResource);
+
+        // Generate Tarot Card image (async, don't block registration)
+        const tarotResult = await generateTarotCard(formName, formResource, persona.title);
 
         const newParticipant: Participant = {
             id: crypto.randomUUID(),
@@ -121,6 +134,7 @@ export default function App() {
             favoriteResource: formResource,
             personaTitle: persona.title,
             personaDescription: persona.description,
+            tarotCardUrl: tarotResult.imageUrl || undefined,
         };
 
         // Save to Supabase
@@ -144,6 +158,92 @@ export default function App() {
                 setParticipants(prev => prev.filter(p => p.id !== id));
             }
         }
+    };
+
+    // State to track which card is being regenerated
+    const [regeneratingCardId, setRegeneratingCardId] = React.useState<string | null>(null);
+
+    // Regenerate a single participant's tarot card
+    const handleRegenerateCard = async (participant: Participant) => {
+        setRegeneratingCardId(participant.id);
+        try {
+            const tarotResult = await generateTarotCard(
+                participant.name,
+                participant.favoriteResource,
+                participant.personaTitle || 'The Settler'
+            );
+
+            if (tarotResult.imageUrl) {
+                await updateParticipantTarotCard(participant.id, tarotResult.imageUrl);
+                setParticipants(prev => prev.map(p =>
+                    p.id === participant.id
+                        ? { ...p, tarotCardUrl: tarotResult.imageUrl! }
+                        : p
+                ));
+            } else if (tarotResult.error) {
+                alert(`Failed to generate card: ${tarotResult.error}`);
+            }
+        } catch (error) {
+            console.error(`Error regenerating card for ${participant.name}:`, error);
+            alert(`Error regenerating card: ${error}`);
+        } finally {
+            setRegeneratingCardId(null);
+        }
+    };
+
+    // Generate missing tarot cards one by one (queue style)
+    const handleGenerateMissingCards = async () => {
+        const missingCards = participants.filter(p => !p.tarotCardUrl);
+
+        if (missingCards.length === 0) {
+            alert(t.noMissingCards);
+            return;
+        }
+
+        setIsGeneratingCards(true);
+        setCardsGeneratedCount(0);
+
+        for (let i = 0; i < missingCards.length; i++) {
+            const participant = missingCards[i];
+            try {
+                const tarotResult = await generateTarotCard(
+                    participant.name,
+                    participant.favoriteResource,
+                    participant.personaTitle || 'The Settler'
+                );
+
+                if (tarotResult.imageUrl) {
+                    // Update in database
+                    await updateParticipantTarotCard(participant.id, tarotResult.imageUrl);
+
+                    // Update local state
+                    setParticipants(prev => prev.map(p =>
+                        p.id === participant.id
+                            ? { ...p, tarotCardUrl: tarotResult.imageUrl! }
+                            : p
+                    ));
+                }
+
+                setCardsGeneratedCount(i + 1);
+            } catch (error) {
+                console.error(`Error generating card for ${participant.name}:`, error);
+            }
+        }
+
+        setIsGeneratingCards(false);
+    };
+
+    // Card modal handlers
+    const openCardModal = (participant: Participant) => {
+        setSelectedCard(participant);
+        setIsCardFlipped(false);
+        // Trigger flip animation after a short delay
+        setTimeout(() => setIsCardFlipped(true), 100);
+    };
+
+    const closeCardModal = () => {
+        setIsCardFlipped(false);
+        setTimeout(() => setSelectedCard(null), 300);
     };
 
     const generateBrackets = async () => {
@@ -258,14 +358,37 @@ export default function App() {
                         </h3>
                     </div>
 
-                    <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                         {participants.map(p => (
                             <div key={p.id} className="flex flex-col items-center group">
-                                <Hexagon size="md" color={RESOURCE_COLORS[p.favoriteResource]}>
-                                    <span className="text-2xl drop-shadow-md">{RESOURCE_EMOJIS[p.favoriteResource]}</span>
-                                </Hexagon>
-                                <span className="mt-2 font-bold text-slate-700 text-sm">{p.name}</span>
-                                <span className="text-[10px] text-slate-500 uppercase tracking-wide">{p.personaTitle || t.settler}</span>
+                                {/* Tarot Card or Hexagon fallback */}
+                                {p.tarotCardUrl ? (
+                                    <div
+                                        className="relative w-36 h-[252px] md:w-40 md:h-[280px] rounded-xl overflow-hidden shadow-lg border-4 border-slate-200 group-hover:border-catan-brick transition-all group-hover:shadow-xl group-hover:-translate-y-1 cursor-pointer"
+                                        onClick={() => openCardModal(p)}
+                                    >
+                                        <img
+                                            src={p.tarotCardUrl}
+                                            alt={`${p.name}'s Tarot Card`}
+                                            className="w-full h-full object-cover"
+                                        />
+                                        <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 to-transparent p-3">
+                                            <div className="text-white font-bold text-sm truncate">{p.name}</div>
+                                            <div className="text-white/70 text-[10px] uppercase tracking-wide truncate">{p.personaTitle || t.settler}</div>
+                                        </div>
+                                        <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-all flex items-center justify-center">
+                                            <span className="opacity-0 group-hover:opacity-100 text-white text-xs font-bold bg-black/50 px-3 py-1 rounded-full transition-opacity">{t.clickToView}</span>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <Hexagon size="md" color={RESOURCE_COLORS[p.favoriteResource]}>
+                                            <span className="text-2xl drop-shadow-md">{RESOURCE_EMOJIS[p.favoriteResource]}</span>
+                                        </Hexagon>
+                                        <span className="mt-2 font-bold text-slate-700 text-sm">{p.name}</span>
+                                        <span className="text-[10px] text-slate-500 uppercase tracking-wide">{p.personaTitle || t.settler}</span>
+                                    </>
+                                )}
                             </div>
                         ))}
                     </div>
@@ -396,6 +519,19 @@ export default function App() {
                             {t.generateBrackets}
                         </button>
 
+                        {/* Generate Missing Tarot Cards Button */}
+                        <button
+                            onClick={handleGenerateMissingCards}
+                            disabled={isGeneratingCards || participants.filter(p => !p.tarotCardUrl).length === 0}
+                            className="w-full py-3 bg-purple-600 text-white rounded-lg font-bold hover:bg-purple-700 transition-colors shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        >
+                            <ImagePlus className="w-5 h-5" />
+                            {isGeneratingCards
+                                ? `${t.generatingCards} (${cardsGeneratedCount}/${participants.filter(p => !p.tarotCardUrl).length + cardsGeneratedCount})`
+                                : `${t.generateMissingCards} (${participants.filter(p => !p.tarotCardUrl).length})`
+                            }
+                        </button>
+
                         <button
                             onClick={handleReset}
                             className="w-full py-2 text-red-500 text-xs font-bold hover:bg-red-50 rounded-lg transition-colors"
@@ -460,13 +596,23 @@ export default function App() {
                                     </div>
                                 </div>
 
-                                <button
-                                    onClick={() => handleDeleteParticipant(p.id)}
-                                    className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                                    title={t.removeParticipant}
-                                >
-                                    <Trash2 className="w-5 h-5" />
-                                </button>
+                                <div className="flex items-center gap-1">
+                                    <button
+                                        onClick={() => handleRegenerateCard(p)}
+                                        disabled={regeneratingCardId === p.id || isGeneratingCards}
+                                        className="p-2 text-slate-400 hover:text-purple-500 hover:bg-purple-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                                        title={t.regenerateCard || 'Regenerate Card'}
+                                    >
+                                        <RefreshCw className={`w-5 h-5 ${regeneratingCardId === p.id ? 'animate-spin' : ''}`} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleDeleteParticipant(p.id)}
+                                        className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                                        title={t.removeParticipant}
+                                    >
+                                        <Trash2 className="w-5 h-5" />
+                                    </button>
+                                </div>
                             </div>
                         ))}
                     </div>
@@ -564,6 +710,72 @@ export default function App() {
                 {view === 'admin' && isAdmin && renderAdmin()}
                 {view === 'bracket' && renderBracket()}
             </main>
+
+            {/* Tarot Card Modal with Flip Animation */}
+            {selectedCard && (
+                <div
+                    className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm"
+                    onClick={closeCardModal}
+                >
+                    <div
+                        className="relative perspective-1000"
+                        onClick={(e) => e.stopPropagation()}
+                    >
+                        {/* Card Container with Flip Animation */}
+                        <div
+                            className={`relative w-64 h-[448px] md:w-80 md:h-[560px] transition-transform duration-700 transform-style-3d ${isCardFlipped ? 'rotate-y-0' : 'rotate-y-180'}`}
+                            style={{
+                                transformStyle: 'preserve-3d',
+                                transform: isCardFlipped ? 'rotateY(0deg)' : 'rotateY(180deg)',
+                            }}
+                        >
+                            {/* Front of Card (The Tarot Image) */}
+                            <div
+                                className="absolute inset-0 backface-hidden rounded-2xl overflow-hidden shadow-2xl border-8 border-amber-100"
+                                style={{ backfaceVisibility: 'hidden' }}
+                            >
+                                <img
+                                    src={selectedCard.tarotCardUrl}
+                                    alt={`${selectedCard.name}'s Tarot Card`}
+                                    className="w-full h-full object-cover"
+                                />
+                            </div>
+
+                            {/* Back of Card (Decorative Pattern) */}
+                            <div
+                                className="absolute inset-0 backface-hidden rounded-2xl overflow-hidden shadow-2xl border-8 border-amber-100 bg-gradient-to-br from-purple-900 via-indigo-900 to-purple-900"
+                                style={{
+                                    backfaceVisibility: 'hidden',
+                                    transform: 'rotateY(180deg)',
+                                }}
+                            >
+                                <div className="w-full h-full flex items-center justify-center">
+                                    <div className="w-3/4 h-3/4 border-4 border-amber-400/50 rounded-lg flex items-center justify-center">
+                                        <div className="text-6xl">🎴</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Card Info Below */}
+                        <div className={`mt-6 text-center transition-opacity duration-500 ${isCardFlipped ? 'opacity-100' : 'opacity-0'}`}>
+                            <h3 className="text-2xl font-black text-white">{selectedCard.name}</h3>
+                            <p className="text-amber-300 font-semibold mt-1">{selectedCard.personaTitle}</p>
+                            {selectedCard.personaDescription && (
+                                <p className="text-white/70 text-sm mt-2 max-w-xs mx-auto italic">"{selectedCard.personaDescription}"</p>
+                            )}
+                        </div>
+
+                        {/* Close Button */}
+                        <button
+                            onClick={closeCardModal}
+                            className="absolute -top-4 -right-4 w-10 h-10 bg-white rounded-full shadow-lg flex items-center justify-center hover:bg-slate-100 transition-colors"
+                        >
+                            <X className="w-5 h-5 text-slate-600" />
+                        </button>
+                    </div>
+                </div>
+            )}
 
         </div>
     );

@@ -53,6 +53,15 @@ export const translations = {
         confirmReset: 'Are you sure? This deletes all data.',
         confirmDelete: 'Are you sure you want to delete this participant? This cannot be undone.',
 
+        // Tarot cards
+        generateMissingCards: 'Generate Missing Tarot Cards',
+        regenerateCard: 'Regenerate Card',
+        generatingCards: 'Generating cards...',
+        cardsGenerated: 'cards generated',
+        noMissingCards: 'All participants have tarot cards!',
+        clickToView: 'Click to view card',
+        close: 'Close',
+
         // Tournament map
         tournamentMap: 'Tournament Map',
         findYourTable: 'Find your table, Settler. May the dice be in your favor.',
@@ -119,6 +128,15 @@ export const translations = {
         bracketsGenerated: '比赛分组已生成！',
         confirmReset: '确定吗？这将删除所有数据。',
         confirmDelete: '确定要删除这位参赛者吗？此操作无法撤销。',
+
+        // Tarot cards
+        generateMissingCards: '生成缺失的塔罗牌',
+        regenerateCard: '重新生成卡牌',
+        generatingCards: '正在生成...',
+        cardsGenerated: '张卡牌已生成',
+        noMissingCards: '所有参赛者都有塔罗牌了！',
+        clickToView: '点击查看卡牌',
+        close: '关闭',
 
         // Tournament map
         tournamentMap: '比赛分组',
