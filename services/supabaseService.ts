@@ -117,6 +117,7 @@ export async function fetchSettings(): Promise<TournamentSettings | null> {
         isRegistrationClosed: data.is_registration_closed,
         adminKey: '12345', // Keep admin key client-side only
         tournamentStarted: data.tournament_started,
+        currentRound: data.current_round || 1,
     };
 }
 
@@ -126,6 +127,7 @@ export async function updateSettings(settings: Partial<TournamentSettings>): Pro
     if (settings.deadline !== undefined) updateData.deadline = settings.deadline;
     if (settings.isRegistrationClosed !== undefined) updateData.is_registration_closed = settings.isRegistrationClosed;
     if (settings.tournamentStarted !== undefined) updateData.tournament_started = settings.tournamentStarted;
+    if (settings.currentRound !== undefined) updateData.current_round = settings.currentRound;
 
     const { error } = await supabase
         .from('settings')
@@ -156,6 +158,7 @@ export async function fetchGroups(): Promise<Group[]> {
         id: row.id,
         name: row.name,
         participants: row.player_ids || [],
+        round: row.round || 1,
     }));
 }
 
@@ -180,6 +183,7 @@ export async function saveGroups(groups: Group[]): Promise<boolean> {
             id: g.id,
             name: g.name,
             player_ids: g.participants,
+            round: g.round || 1,
         })));
 
     if (insertError) {

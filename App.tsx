@@ -24,9 +24,12 @@ const DEFAULT_SETTINGS: TournamentSettings = {
     isRegistrationClosed: false,
     adminKey: '12345', // Simple hardcoded key for demo
     tournamentStarted: false,
+    currentRound: 1,
 };
 
 const MAX_PLAYERS_PER_TABLE = 4;
+const MIN_PLAYERS_PER_TABLE = 3;
+const FINALS_TABLE_SIZE = 4;
 
 // --- App Component ---
 export default function App() {
@@ -246,33 +249,67 @@ export default function App() {
         setTimeout(() => setSelectedCard(null), 300);
     };
 
+    /**
+     * Smart grouping for two-round tournament:
+     * Round 1 (Preliminary): Distribute players across tables of 3-4 players.
+     *   - Maximize 4-player tables, fill remaining with 3-player tables.
+     *   - e.g. 14 players → 2×4 + 2×3 = 4 tables
+     * Round 2 (Finals): 1 winner per table → finals table of 4.
+     */
     const generateBrackets = async () => {
-        // Simple shuffle
-        const shuffled = [...participants].sort(() => 0.5 - Math.random());
-        const newGroups: Group[] = [];
-        const chunks: Participant[][] = [];
+        const n = participants.length;
+        if (n < MIN_PLAYERS_PER_TABLE) {
+            alert(lang === 'zh' ? `至少需要${MIN_PLAYERS_PER_TABLE}名参赛者` : `Need at least ${MIN_PLAYERS_PER_TABLE} participants`);
+            return;
+        }
 
-        for (let i = 0; i < shuffled.length; i += MAX_PLAYERS_PER_TABLE) {
-            chunks.push(shuffled.slice(i, i + MAX_PLAYERS_PER_TABLE));
+        // Calculate optimal table distribution: maximize 4-player tables, rest get 3
+        // We want: 4*a + 3*b = n, maximize a, with a+b = number of tables
+        // Number of tables with 3 players = (4 * numTables - n), rest get 4
+        const numTables = Math.ceil(n / MAX_PLAYERS_PER_TABLE);
+        const tablesOf3 = numTables * MAX_PLAYERS_PER_TABLE - n; // how many tables need only 3
+        const tablesOf4 = numTables - tablesOf3;
+
+        // Shuffle players randomly
+        const shuffled = [...participants].sort(() => 0.5 - Math.random());
+        const chunks: Participant[][] = [];
+        let offset = 0;
+
+        // First, create tables of 4
+        for (let i = 0; i < tablesOf4; i++) {
+            chunks.push(shuffled.slice(offset, offset + 4));
+            offset += 4;
+        }
+        // Then, create tables of 3
+        for (let i = 0; i < tablesOf3; i++) {
+            chunks.push(shuffled.slice(offset, offset + 3));
+            offset += 3;
         }
 
         // Generate fun names for groups
         const groupNames = await generateGroupNames(chunks);
 
-        chunks.forEach((chunk, index) => {
-            newGroups.push({
-                id: crypto.randomUUID(),
-                name: groupNames[index] || `Table ${index + 1}`,
-                participants: chunk.map(p => p.id)
-            });
+        const newGroups: Group[] = chunks.map((chunk, index) => ({
+            id: crypto.randomUUID(),
+            name: groupNames[index] || `Table ${index + 1}`,
+            participants: chunk.map(p => p.id),
+            round: 1,
+        }));
+
+        // Add a placeholder finals group (round 2) — will be filled after round 1
+        newGroups.push({
+            id: crypto.randomUUID(),
+            name: lang === 'zh' ? '🏆 决赛桌' : '🏆 Finals Table',
+            participants: [],
+            round: 2,
         });
 
         // Save to Supabase
         await saveGroups(newGroups);
-        await updateSettingsInDb({ tournamentStarted: true, isRegistrationClosed: true });
+        await updateSettingsInDb({ tournamentStarted: true, isRegistrationClosed: true, currentRound: 1 });
 
         setGroups(newGroups);
-        setSettings(prev => ({ ...prev, tournamentStarted: true, isRegistrationClosed: true }));
+        setSettings(prev => ({ ...prev, tournamentStarted: true, isRegistrationClosed: true, currentRound: 1 }));
         alert(t.bracketsGenerated);
     };
 
@@ -550,8 +587,20 @@ export default function App() {
                             <div className="text-xs text-slate-500 font-bold uppercase">{t.participants}</div>
                         </div>
                         <div className="bg-slate-50 p-4 rounded-xl text-center">
-                            <div className="text-3xl font-black text-slate-800">{Math.ceil(participants.length / MAX_PLAYERS_PER_TABLE)}</div>
+                            <div className="text-3xl font-black text-slate-800">{Math.ceil(participants.length / MAX_PLAYERS_PER_TABLE) + 1}</div>
                             <div className="text-xs text-slate-500 font-bold uppercase">{t.tablesNeeded}</div>
+                            <div className="text-xs text-slate-400 mt-1">
+                                {(() => {
+                                    const n = participants.length;
+                                    const numTables = Math.ceil(n / MAX_PLAYERS_PER_TABLE);
+                                    const tablesOf3 = numTables * MAX_PLAYERS_PER_TABLE - n;
+                                    const tablesOf4 = numTables - tablesOf3;
+                                    if (n < MIN_PLAYERS_PER_TABLE) return '';
+                                    return lang === 'zh'
+                                        ? `${tablesOf4}×4人 + ${tablesOf3}×3人 + 决赛桌`
+                                        : `${tablesOf4}×4p + ${tablesOf3}×3p + finals`;
+                                })()}
+                            </div>
                         </div>
                     </div>
 
@@ -621,48 +670,137 @@ export default function App() {
         </div>
     );
 
-    const renderBracket = () => (
-        <div className="w-full max-w-6xl mx-auto px-4 py-8">
-            <div className="flex items-center justify-between mb-12">
-                <div>
-                    <h2 className="text-4xl font-black text-slate-800 mb-2">{t.tournamentMap}</h2>
-                    <p className="text-slate-500">{t.findYourTable}</p>
-                </div>
-                <button onClick={() => setView('landing')} className="px-4 py-2 border rounded-full hover:bg-slate-50 text-sm font-bold">{t.backHome}</button>
-            </div>
+    const renderBracket = () => {
+        const round1Groups = groups.filter(g => g.round === 1);
+        const finalsGroup = groups.find(g => g.round === 2);
 
-            <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {groups.map((group, idx) => (
-                    <div key={group.id} className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100 flex flex-col">
-                        <div className="bg-slate-900 p-4 text-center">
-                            <h3 className="text-white font-bold text-lg">{group.name}</h3>
-                            <div className="text-slate-400 text-xs uppercase tracking-widest mt-1">{t.table} {idx + 1}</div>
+        return (
+            <div className="w-full max-w-6xl mx-auto px-4 py-8">
+                <div className="flex items-center justify-between mb-12">
+                    <div>
+                        <h2 className="text-4xl font-black text-slate-800 mb-2">{t.tournamentMap}</h2>
+                        <p className="text-slate-500">{t.findYourTable}</p>
+                    </div>
+                    <button onClick={() => setView('landing')} className="px-4 py-2 border rounded-full hover:bg-slate-50 text-sm font-bold">{t.backHome}</button>
+                </div>
+
+                {/* Round 1: Preliminary */}
+                <div className="mb-4">
+                    <h3 className="text-2xl font-black text-slate-700 mb-1">
+                        {lang === 'zh' ? '第一轮：小组赛' : 'Round 1: Preliminary'}
+                    </h3>
+                    <p className="text-sm text-slate-400 mb-6">
+                        {lang === 'zh'
+                            ? `${round1Groups.length} 桌 — 每桌第1名晋级决赛`
+                            : `${round1Groups.length} tables — Top 1 from each table advances to finals`}
+                    </p>
+                </div>
+
+                <div className="grid md:grid-cols-2 lg:grid-cols-2 gap-8 mb-12">
+                    {round1Groups.map((group, idx) => (
+                        <div key={group.id} className="bg-white rounded-3xl shadow-xl overflow-hidden border border-slate-100 flex flex-col">
+                            <div className="bg-slate-900 p-4 text-center">
+                                <h3 className="text-white font-bold text-lg">{group.name}</h3>
+                                <div className="text-slate-400 text-xs uppercase tracking-widest mt-1">
+                                    {t.table} {idx + 1} — {group.participants.length} {lang === 'zh' ? '人' : 'players'}
+                                </div>
+                            </div>
+                            <div className="p-6 flex-1 flex flex-col gap-4">
+                                {group.participants.map(pid => {
+                                    const p = participants.find(part => part.id === pid);
+                                    if (!p) return null;
+                                    return (
+                                        <div key={pid} className="flex items-center gap-4 p-3 rounded-xl bg-slate-50 border border-slate-100">
+                                            <div className={`w-10 h-10 rounded-full ${RESOURCE_COLORS[p.favoriteResource]} flex items-center justify-center text-lg shadow-sm text-white shrink-0`}>
+                                                {RESOURCE_EMOJIS[p.favoriteResource]}
+                                            </div>
+                                            <div>
+                                                <div className="font-bold text-slate-800">{p.name}</div>
+                                                <div className="text-xs text-slate-500 italic">{p.personaTitle}</div>
+                                            </div>
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                            <div className="bg-slate-50 p-3 text-center text-xs text-slate-400 font-bold uppercase tracking-wider border-t">
+                                {t.qualifiesWinner}
+                            </div>
                         </div>
-                        <div className="p-6 flex-1 flex flex-col gap-4">
-                            {group.participants.map(pid => {
-                                const p = participants.find(part => part.id === pid);
-                                if (!p) return null;
-                                return (
-                                    <div key={pid} className="flex items-center gap-4 p-3 rounded-xl bg-slate-50 border border-slate-100">
-                                        <div className={`w-10 h-10 rounded-full ${RESOURCE_COLORS[p.favoriteResource]} flex items-center justify-center text-lg shadow-sm text-white shrink-0`}>
-                                            {RESOURCE_EMOJIS[p.favoriteResource]}
-                                        </div>
-                                        <div>
-                                            <div className="font-bold text-slate-800">{p.name}</div>
-                                            <div className="text-xs text-slate-500 italic">{p.personaTitle}</div>
-                                        </div>
+                    ))}
+                </div>
+
+                {/* Arrow connector */}
+                <div className="flex flex-col items-center my-8">
+                    <div className="w-px h-8 bg-slate-300" />
+                    <div className="text-slate-400 text-sm font-bold py-2">
+                        {lang === 'zh' ? '每桌第1名晋级' : 'Top 1 from each table'}
+                    </div>
+                    <div className="w-0 h-0 border-l-8 border-r-8 border-t-8 border-l-transparent border-r-transparent border-t-slate-300" />
+                </div>
+
+                {/* Round 2: Finals */}
+                {finalsGroup && (
+                    <div>
+                        <div className="mb-4">
+                            <h3 className="text-2xl font-black text-slate-700 mb-1">
+                                {lang === 'zh' ? '决赛：冠军桌' : 'Finals: Championship Table'}
+                            </h3>
+                            <p className="text-sm text-slate-400 mb-6">
+                                {lang === 'zh'
+                                    ? `${round1Groups.length} 名晋级者同台，一局定胜负`
+                                    : `${round1Groups.length} qualifiers compete — one game to rule them all`}
+                            </p>
+                        </div>
+
+                        <div className="max-w-lg mx-auto">
+                            <div className="bg-white rounded-3xl shadow-xl overflow-hidden border-2 border-amber-300 flex flex-col">
+                                <div className="bg-gradient-to-r from-amber-500 to-amber-600 p-4 text-center">
+                                    <h3 className="text-white font-bold text-lg">{finalsGroup.name}</h3>
+                                    <div className="text-amber-100 text-xs uppercase tracking-widest mt-1">
+                                        {lang === 'zh' ? '决赛' : 'Finals'}
                                     </div>
-                                )
-                            })}
-                        </div>
-                        <div className="bg-slate-50 p-3 text-center text-xs text-slate-400 font-bold uppercase tracking-wider border-t">
-                            {t.qualifiesWinner}
+                                </div>
+                                <div className="p-6 flex-1 flex flex-col gap-4">
+                                    {finalsGroup.participants.length > 0 ? (
+                                        finalsGroup.participants.map(pid => {
+                                            const p = participants.find(part => part.id === pid);
+                                            if (!p) return null;
+                                            return (
+                                                <div key={pid} className="flex items-center gap-4 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                                                    <div className={`w-10 h-10 rounded-full ${RESOURCE_COLORS[p.favoriteResource]} flex items-center justify-center text-lg shadow-sm text-white shrink-0`}>
+                                                        {RESOURCE_EMOJIS[p.favoriteResource]}
+                                                    </div>
+                                                    <div>
+                                                        <div className="font-bold text-slate-800">{p.name}</div>
+                                                        <div className="text-xs text-slate-500 italic">{p.personaTitle}</div>
+                                                    </div>
+                                                </div>
+                                            )
+                                        })
+                                    ) : (
+                                        // Placeholder slots for finalists
+                                        Array.from({ length: round1Groups.length }).map((_, i) => (
+                                            <div key={i} className="flex items-center gap-4 p-3 rounded-xl bg-slate-50 border border-dashed border-slate-200">
+                                                <div className="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-lg shrink-0">
+                                                    ?
+                                                </div>
+                                                <div className="text-sm text-slate-400 italic">
+                                                    {lang === 'zh' ? `桌 ${i + 1} 的获胜者` : `Winner from Table ${i + 1}`}
+                                                </div>
+                                            </div>
+                                        ))
+                                    )}
+                                </div>
+                                <div className="bg-amber-50 p-3 text-center text-xs text-amber-600 font-bold uppercase tracking-wider border-t border-amber-200">
+                                    {lang === 'zh' ? '冠军诞生' : 'Champion Crowned'}
+                                </div>
+                            </div>
                         </div>
                     </div>
-                ))}
+                )}
             </div>
-        </div>
-    );
+        );
+    };
 
     // --- Main Render ---
 

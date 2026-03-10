@@ -16,6 +16,7 @@ export interface Group {
   id: string;
   name: string; // AI Generated or standard
   participants: string[]; // IDs
+  round: number; // 1 = preliminary, 2 = finals
 }
 
 export interface TournamentSettings {
@@ -23,6 +24,7 @@ export interface TournamentSettings {
   isRegistrationClosed: boolean;
   adminKey: string; // Ideally hashed, but plain text for this demo
   tournamentStarted: boolean;
+  currentRound: number; // 1 = preliminary round, 2 = finals
 }
 
 export const RESOURCES: Resource[] = ['brick', 'wood', 'sheep', 'wheat', 'ore'];
