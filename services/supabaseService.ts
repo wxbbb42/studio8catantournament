@@ -118,6 +118,7 @@ export async function fetchSettings(): Promise<TournamentSettings | null> {
         adminKey: '12345', // Keep admin key client-side only
         tournamentStarted: data.tournament_started,
         currentRound: data.current_round || 1,
+        championId: data.champion_id || undefined,
     };
 }
 
@@ -128,6 +129,7 @@ export async function updateSettings(settings: Partial<TournamentSettings>): Pro
     if (settings.isRegistrationClosed !== undefined) updateData.is_registration_closed = settings.isRegistrationClosed;
     if (settings.tournamentStarted !== undefined) updateData.tournament_started = settings.tournamentStarted;
     if (settings.currentRound !== undefined) updateData.current_round = settings.currentRound;
+    if ('championId' in settings) updateData.champion_id = settings.championId || null;
 
     const { error } = await supabase
         .from('settings')
@@ -159,6 +161,7 @@ export async function fetchGroups(): Promise<Group[]> {
         name: row.name,
         participants: row.player_ids || [],
         round: row.round || 1,
+        winnerId: row.winner_id || undefined,
     }));
 }
 
@@ -184,6 +187,7 @@ export async function saveGroups(groups: Group[]): Promise<boolean> {
             name: g.name,
             player_ids: g.participants,
             round: g.round || 1,
+            winner_id: g.winnerId || null,
         })));
 
     if (insertError) {
@@ -191,6 +195,19 @@ export async function saveGroups(groups: Group[]): Promise<boolean> {
         return false;
     }
 
+    return true;
+}
+
+export async function updateGroupWinner(groupId: string, winnerId: string | null): Promise<boolean> {
+    const { error } = await supabase
+        .from('groups')
+        .update({ winner_id: winnerId })
+        .eq('id', groupId);
+
+    if (error) {
+        console.error('Error updating group winner:', error);
+        return false;
+    }
     return true;
 }
 
@@ -207,6 +224,7 @@ export async function deleteAllData(): Promise<boolean> {
             deadline: new Date(Date.now() + 1000 * 60 * 60 * 48).toISOString(),
             is_registration_closed: false,
             tournament_started: false,
+            champion_id: null,
         }).eq('id', 1);
 
         return true;
